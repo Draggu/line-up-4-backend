@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package main;
+
+service Game {
+    rpc create (GameSettings) returns (GameID);
+    rpc join (GameID) returns (PlayerAssigment);
+    rpc move (stream Move) returns (stream MoveInfo);
+}
+
+message GameSettings{
+    uint32 horizontalSize = 1;
+    uint32 verticalSize = 2;
+    bool isHorizontalCyclic = 3;
+}
+
+message GameID {
+    string id = 1;
+}
+
+message Move {
+    uint32 x = 1;
+    uint32 y = 2;
+}
+
+enum Player{
+    P1 = 0;
+    P2 = 1;
+}
+
+message MoveInfo{
+    Move move = 1;
+    Player player = 2;
+}
+
+message PlayerAssigment{
+    Player player = 1;
+    string identityToken = 2;
+}

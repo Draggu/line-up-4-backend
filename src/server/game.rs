@@ -1,14 +1,21 @@
 use game_server::Game;
+use mongodb::{bson::Bson, Collection, Database};
 use tokio_stream::wrappers::ReceiverStream;
-use tonic::{Request, Response, Status};
+use tonic::{Code, Request, Response, Status};
+
+use crate::matrix::Matrix;
 
 tonic::include_proto!("main");
 
-pub struct GameService {}
+pub struct GameService {
+    collection: Collection<Matrix>,
+}
 
 impl GameService {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(db: Database) -> Self {
+        Self {
+            collection: db.collection::<Matrix>("games"),
+        }
     }
 }
 
@@ -17,12 +24,19 @@ impl Game for GameService {
     type moveStream = ReceiverStream<Result<MoveInfo, Status>>;
 
     async fn create(&self, request: Request<GameSettings>) -> Result<Response<GameId>, Status> {
-        let GameSettings {
-            is_horizontal_cyclic,
-            horizontal_size,
-            vertical_size,
-        } = request.get_ref();
-        unimplemented!();
+        let err = || Status::new(Code::Internal, "Internal Server Error");
+
+        if let Bson::ObjectId(game) = self
+            .collection
+            .insert_one(Matrix::new(request.get_ref()), None)
+            .await
+            .map_err(|_| err())
+            .map(|r| r.inserted_id)?
+        {
+            Ok(Response::new(GameId { id: game.to_hex() }))
+        } else {
+            Err(err())
+        }
     }
 
     async fn join(&self, request: Request<GameId>) -> Result<Response<PlayerAssigment>, Status> {

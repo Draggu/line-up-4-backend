@@ -6,6 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic_build::configure()
         .file_descriptor_set_path(&descriptor_path)
         .build_client(false)
+        .type_attribute("Player", "#[derive(serde::Deserialize, serde::Serialize)]")
         .compile(&["schemas/schema.proto"], &["schemas/"])?;
 
     Ok(())

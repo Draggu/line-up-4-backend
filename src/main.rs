@@ -11,7 +11,7 @@ mod server;
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
 
-    let database = create_db().await?;
+    let (database, client) = create_db().await?;
 
     let reflection_service = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(tonic::include_file_descriptor_set!("descriptor"))
@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap();
 
     Server::builder()
-        .add_service(GameServer::new(GameService::new(database)))
+        .add_service(GameServer::new(GameService::new(database, client)))
         .add_service(reflection_service)
         .serve(
             std::env::var("SERVER_URL")

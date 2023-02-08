@@ -7,6 +7,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .file_descriptor_set_path(&descriptor_path)
         .build_client(false)
         .type_attribute("Player", "#[derive(serde::Deserialize, serde::Serialize)]")
+        .type_attribute(
+            "Move",
+            "#[derive(Eq, Hash, serde::Deserialize, serde::Serialize)]",
+        )
         .compile(&["schemas/schema.proto"], &["schemas/"])?;
 
     Ok(())

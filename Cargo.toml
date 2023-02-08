@@ -1,16 +1,17 @@
 [package]
+build = "scripts/build.rs"
 edition = "2021"
 name = "line-up-4"
 version = "0.1.0"
-build = "scripts/build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bimap = {version = "0.6.2", features = ["serde"]}
 dotenv = "0.15.0"
 futures = "0.3.25"
 hyper = "0.14.23"
-mongodb = "2.3.1"
+mongodb = {version = "2.3.1", features = ["tokio-runtime"]}
 prost = "0.11.6"
 serde = "1.0.152"
 tokio = "1.24.1"
@@ -22,5 +23,5 @@ tonic-reflection = "0.6.0"
 tonic-build = "0.8.3"
 
 [[bin]]
-name = "server"
+name = "line-up-4"
 path = "src/main.rs"

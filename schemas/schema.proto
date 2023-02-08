@@ -3,9 +3,9 @@ syntax = "proto3";
 package main;
 
 service Game {
-    rpc create (GameSettings) returns (GameID);
-    rpc join (GameID) returns (PlayerAssigment);
-    rpc move (stream Move) returns (stream MoveInfo);
+    rpc Create (GameSettings) returns (GameID);
+    rpc Join (GameID) returns (PlayerAssigment);
+    rpc Move (stream UserMove) returns (stream MoveInfo);
 }
 
 message GameSettings{
@@ -18,9 +18,9 @@ message GameID {
     string id = 1;
 }
 
-message Move {
+message UserMove {
     uint32 x = 1;
-    uint32 y = 2;
+    string identityToken = 2;
 }
 
 enum Player{
@@ -29,8 +29,9 @@ enum Player{
 }
 
 message MoveInfo{
-    Move move = 1;
-    Player player = 2;
+    bool isLastMove = 1;
+    uint32 x = 2;
+    Player player = 3;
 }
 
 message PlayerAssigment{

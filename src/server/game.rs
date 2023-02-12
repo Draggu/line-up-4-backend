@@ -74,6 +74,7 @@ impl Game for GameService {
         request: Request<tonic::Streaming<UserMove>>,
     ) -> Result<Response<Self::MoveStream>, Status> {
         let mut stream = request.into_inner();
+        // TODO: change to external queue
         let (tx, rx) = mpsc::channel(4);
         let db = self.db.clone();
         let client = self.client.clone();

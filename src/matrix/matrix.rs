@@ -6,10 +6,10 @@ use mongodb::{
     Client, Collection, Database,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use super::{
     errors::{JoinError, TryMoveError},
+    index_range::{Horizontal, IndexRange, Vertical},
     vectorize,
 };
 
@@ -17,10 +17,10 @@ use super::{
 pub struct Matrix {
     #[serde(rename = "_id")]
     id: ObjectId,
-    horizontal_size: u32,
-    vertical_size: u32,
+    horizontal_size: u16,
+    vertical_size: u16,
     is_horizontal_cyclic: bool,
-    moves: HashMap<u32, Vec<Player>>,
+    moves: Vec<Vec<Player>>,
     #[serde(with = "vectorize")]
     player_ids: BiHashMap<ObjectId, Player>,
     current_move_player: Player,
@@ -30,13 +30,67 @@ pub struct Matrix {
 }
 
 impl Matrix {
+    const LINE: usize = 4;
+    const LINE_WITHOUT_FIRST: usize = Self::LINE - 1;
+
+    /// * `ir` is start point and will not be counted
+    fn length_in_dir(&self, mut ir: IndexRange, v: Vertical, h: Option<Horizontal>) -> usize {
+        let first_column = &self.moves[ir.as_usize()];
+        let y = first_column.len() - 1;
+
+        // there must be minimum 1 element
+        let last_player = first_column.last().unwrap();
+
+        (1..Self::LINE)
+            .take_while(|i| {
+                // if no horizontal move then do not move cursor
+                h.map(|h| ir.move_cursor(1, h)).unwrap_or(true)
+                    && self
+                        .moves
+                        .get(ir.as_usize())
+                        .unwrap()
+                        .get(match v {
+                            Vertical::Up => y + i,
+                            Vertical::Down => y - i,
+                            Vertical::Straight => y,
+                        })
+                        .filter(|player| *player == last_player)
+                        .is_some()
+            })
+            .count()
+    }
+
+    fn is_finished(&self, last_move: u16) -> bool {
+        let ir = IndexRange::new(self.horizontal_size, self.is_horizontal_cyclic, last_move);
+
+        macro_rules! line {
+            ($v1:expr,$v2:expr,$h1:expr,$h2:expr) => {{
+                let one_side_length = self.length_in_dir(ir, $v1, $h1);
+
+                one_side_length == Self::LINE_WITHOUT_FIRST
+                    || (one_side_length + self.length_in_dir(ir, $v2, $h2))
+                        == Self::LINE_WITHOUT_FIRST
+            }};
+        }
+
+        return line! {
+            Vertical::Down,Vertical::Up,None,None
+        } || line! {
+            Vertical::Down,Vertical::Up,Some(Horizontal::Left),Some(Horizontal::Right)
+        } || line! {
+            Vertical::Up,Vertical::Down,Some(Horizontal::Left),Some(Horizontal::Right)
+        } || line! {
+            Vertical::Straight,Vertical::Straight,Some(Horizontal::Left),Some(Horizontal::Right)
+        };
+    }
+
     pub fn new(settings: &GameSettings) -> Self {
         Self {
             id: ObjectId::new(),
-            horizontal_size: settings.horizontal_size,
-            vertical_size: settings.vertical_size,
+            horizontal_size: settings.horizontal_size as u16,
+            vertical_size: settings.vertical_size as u16,
             is_horizontal_cyclic: settings.is_horizontal_cyclic,
-            moves: HashMap::new(),
+            moves: vec![Vec::new(); settings.horizontal_size as usize],
             player_ids: BiHashMap::new(),
             current_move_player: Player::P1,
             is_finished: false,
@@ -85,13 +139,16 @@ impl Matrix {
             return Err(TryMoveError::OtherPlayerTurn);
         }
 
-        if x >= &self.horizontal_size {
+        let x = *x as u16;
+
+        if x >= self.horizontal_size.into() {
             return Err(TryMoveError::MissingColumn);
         }
 
-        let column = self.moves.entry(*x).or_insert_with(Vec::new);
+        // at this point x is always in range
+        let column = self.moves.get_mut(x as usize).unwrap();
 
-        if column.len() == usize::try_from(self.vertical_size).unwrap() {
+        if column.len() == self.vertical_size as usize {
             return Err(TryMoveError::ColumnFull);
         }
 
@@ -102,13 +159,9 @@ impl Matrix {
             Player::P2 => Player::P1,
         };
 
-        self.is_finished = self.is_finished(*x);
+        self.is_finished = self.is_finished(x);
 
         Ok((self.is_finished, player))
-    }
-
-    fn is_finished(&self, _last_move: u32) -> bool {
-        unimplemented!();
     }
 
     #[inline]
